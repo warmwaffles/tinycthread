@@ -1,36 +1,31 @@
-cmake_minimum_required(VERSION 2.8.4)
-project(TinyCThread)
-enable_testing()
+cmake_minimum_required(VERSION 3.2 FATAL_ERROR)
 
+project(tinycthread C)
+
+set(CMAKE_C_FLAGS_DEBUG "-std=c11 -Wall -Wextra -g")
+set(CMAKE_C_FLAGS_RELEASE "-std=c11 -Wall -Wextra -O3 -flto")
+
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Debug)
+endif(NOT CMAKE_BUILD_TYPE)
+
+include(FindPkgConfig)
 find_package(Threads REQUIRED)
 
-add_library(tinycthread STATIC source/tinycthread.c)
+if (WIN32)
+    set(SOURCES src/win/tinycthread.c)
+else()
+    set(SOURCES src/posix/tinycthread.c)
+endif()
+
+include_directories(include)
+
+add_library(tinycthread STATIC ${SOURCES})
 target_link_libraries(tinycthread ${CMAKE_THREAD_LIBS_INIT})
-set_property(TARGET tinycthread APPEND PROPERTY INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/source")
-set_property(TARGET tinycthread APPEND PROPERTY INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/source")
-set_property(TARGET tinycthread PROPERTY POSITION_INDEPENDENT_CODE True)
 
-option(TINYCTHREAD_DISABLE_TESTS "Disable TinyCThread unit tests")
-option(TINYCTHREAD_INSTALL "Install a static library for TinyCThread")
+target_include_directories(tinycthread PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+    PRIVATE src)
 
-if(NOT TINYCTHREAD_DISABLE_TESTS)
-  add_executable(test-tinycthread "${CMAKE_CURRENT_SOURCE_DIR}/test/test.c")
-  target_link_libraries(test-tinycthread tinycthread)
-
-  add_test(NAME tinycthread
-    COMMAND $<TARGET_FILE:test-tinycthread>)
-endif(NOT TINYCTHREAD_DISABLE_TESTS)
-
-if(TINYCTHREAD_INSTALL)
-  if(CMAKE_INSTALL_LIBDIR)
-    install(TARGETS tinycthread ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}")
-  else()
-    install(TARGETS tinycthread ARCHIVE DESTINATION lib)
-  endif()
-
-  if(CMAKE_INSTALL_INCLUDEDIR)
-    install(FILES source/tinycthread.h DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
-  else()
-    install(FILES source/tinycthread.h DESTINATION include)
-  endif()
-endif(TINYCTHREAD_INSTALL)
+export(TARGETS tinycthread FILE tinycthread_config.cmake)
